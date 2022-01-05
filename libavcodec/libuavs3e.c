@@ -1,22 +1,14 @@
-#include <stdio.h> 
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <stdint.h>
-#include <float.h>
-//#include <dlfcn.h>
-#include "avcodec.h"
-#include "internal.h"
-#include "encode.h"
-#include "libavutil/internal.h"
-#include "libavutil/mem.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libswscale/swscale.h"
-#include "libswscale/swscale_internal.h"
-//#include "mxnet_api.h"
+
 
 #include "uavs3e/uavs3e.h" 
+
+#include "internal.h"
+#include "avcodec.h"
+
+#include "libavutil/common.h"
+#include "libavutil/opt.h"
+
+#include "encode.h"
 
 #define MAX_BUMP_FRM_CNT           (8 <<1)
 #define MAX_BS_BUF                 (32*1024*1024)
