@@ -1,5 +1,16 @@
-FFmpeg README
+FFmpeg-AVSPlus README
 =============
+
+[CI Builds (Windows x64 & Linux x64)](https://github.com/xeonliu/FFmpeg-AVS-Builds/releases/tag/latest)
+
+> Note: Upstream support for MacOS is buggy. Please consider building from source. 
+
+## AVS Support
+```
+ D.V.L. cavs                 Chinese AVS (Audio Video Standard) (Jizhun and Guangdian Profile) (thanks maliwen2015!)
+ DEV.L. avs2                 AVS2-P2/IEEE1857.4 (decoders: libdavs2) (encoders: libxavs2)
+ D.V.L. avs3                 AVS3-P2/IEEE1857.10 (decoders: libuavs3d)
+```
 
 FFmpeg is a collection of libraries and tools to process multimedia content
 such as audio, video, subtitles and related metadata.
