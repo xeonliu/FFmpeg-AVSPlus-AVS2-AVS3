@@ -550,6 +550,7 @@ extern const FFCodec ff_wmavoice_decoder;
 extern const FFCodec ff_ws_snd1_decoder;
 extern const FFCodec ff_xma1_decoder;
 extern const FFCodec ff_xma2_decoder;
+extern const FFCodec ff_libdra_decoder;
 
 /* PCM codecs */
 extern const FFCodec ff_pcm_alaw_encoder;
