@@ -1869,8 +1869,6 @@ EXTERNAL_LIBRARY_GPL_LIST="
     libdvdnav
     libdvdread
     librubberband
-    libuavs3d
-    libuavs3e
     libvidstab
     libx264
     libx265
