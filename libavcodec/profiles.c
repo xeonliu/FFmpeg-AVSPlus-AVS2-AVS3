@@ -217,6 +217,15 @@ const AVProfile ff_apv_profiles[] = {
     { AV_PROFILE_APV_4444_10,            "4444-10"         },
     { AV_PROFILE_APV_4444_12,            "4444-12"         },
     { AV_PROFILE_APV_400_10,             "400-10"          },
+{ AV_PROFILE_UNKNOWN },
+};
+
+const AVProfile ff_cavs_profiles[] = {
+    { AV_PROFILE_CAVS_JIZHUN,     "Jizhun"    },
+    { AV_PROFILE_CAVS_SHENZHAN,   "Shenzhan"  },
+    { AV_PROFILE_CAVS_YIDONG,     "Yidong"    },
+    { AV_PROFILE_CAVS_GUANGDIAN,  "Guangdian" },
+    { AV_PROFILE_CAVS_JIAQIANG,   "Jiaqiang"  },
     { AV_PROFILE_UNKNOWN },
 };
 
