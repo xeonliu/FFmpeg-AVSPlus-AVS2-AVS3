@@ -194,6 +194,12 @@
 #define AV_PROFILE_EVC_BASELINE             0
 #define AV_PROFILE_EVC_MAIN                 1
 
+#define AV_PROFILE_CAVS_JIZHUN      0x20
+#define AV_PROFILE_CAVS_SHENZHAN    0x24
+#define AV_PROFILE_CAVS_YIDONG      0x34
+#define AV_PROFILE_CAVS_GUANGDIAN   0x48
+#define AV_PROFILE_CAVS_JIAQIANG    0x88
+
 
 #define AV_LEVEL_UNKNOWN                  -99
 
