@@ -15,6 +15,13 @@ FFmpeg-AVSPlus README
 FFmpeg is a collection of libraries and tools to process multimedia content
 such as audio, video, subtitles and related metadata.
 
+## Quick Start
+To use the AVS features, ensure you have the required external libraries installed and compile with:
+```bash
+./configure --enable-libdavs2 --enable-libxavs2 --enable-libuavs3d
+make
+```
+
 ## Libraries
 
 * `libavcodec` provides implementation of a wider range of codecs.
