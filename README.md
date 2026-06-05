@@ -12,6 +12,16 @@ FFmpeg-AVSPlus README
  D.V.L. avs3                 AVS3-P2/IEEE1857.10 (decoders: libuavs3d)
 ```
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=xeonliu%2FFFmpeg-AVSPlus%2Cxeonliu%2FFFmpeg-AVS-Builds%2Cmaliwen2015%2Fffmpeg_cavs_dra&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xeonliu/FFmpeg-AVSPlus%2Cxeonliu/FFmpeg-AVS-Builds%2Cmaliwen2015/ffmpeg_cavs_dra&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xeonliu/FFmpeg-AVSPlus%2Cxeonliu/FFmpeg-AVS-Builds%2Cmaliwen2015/ffmpeg_cavs_dra&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xeonliu/FFmpeg-AVSPlus%2Cxeonliu/FFmpeg-AVS-Builds%2Cmaliwen2015/ffmpeg_cavs_dra&type=date&legend=top-left" />
+ </picture>
+</a>
+
 FFmpeg is a collection of libraries and tools to process multimedia content
 such as audio, video, subtitles and related metadata.
 
