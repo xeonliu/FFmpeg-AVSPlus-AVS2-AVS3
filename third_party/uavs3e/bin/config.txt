@@ -1,0 +1,10 @@
+#======== File I/O ===============================
+input                   : g:\\seqs\avs2\BasketballDrive_1920x1080_50.yuv     # (MANDATORY) file name of input video
+width                   : 1920                             # (MANDATORY) pixel width of input video
+height                  : 1080                             # (MANDATORY) pixel height of input video
+fps_num                 : 50                              # (MANDATORY) frame rate (Hz), numerator
+fps_den                 : 1                               # (MANDATORY) frame rate (Hz), denominator
+input_bit_depth         : 8                               # (MANDATORY) input_bit_depth
+frames                  : 17                              # maximum number of frames to be encoded
+output                  : str.bin                         # file name of output bitstream
+recon                   : rec.yuv                         # file name of reconstructed video

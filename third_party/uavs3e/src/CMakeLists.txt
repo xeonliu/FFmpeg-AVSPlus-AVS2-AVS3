@@ -1,0 +1,107 @@
+
+set(LIBNAME uavs3e)
+
+# add source
+aux_source_directory(. DIR_UAVS3E_SRC)
+if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "aarch64" OR "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm64")
+  message("-- enable_armv8")
+  aux_source_directory(./armv8 DIR_ARM64_SRC)
+  list(APPEND DIR_ARM64_SRC "./armv8/arm64.c")
+  list(APPEND DIR_ARM64_SRC "./armv8/alf_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/deblock_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/def_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/inter_pred_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/intra_pred_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/trans_arm64.c")
+  list(APPEND DIR_ARM64_SRC "./armv8/trans_dct_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/cost_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/pixel_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/itrans_dct_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/sao_arm64.c")
+  list(APPEND DIR_ARM64_SRC "./armv8/sao_kernel_arm64.S")
+  list(APPEND DIR_ARM64_SRC "./armv8/itrans_arm64.c")
+  include_directories("./armv8")
+  enable_language(ASM)
+elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "loongarch64")
+  message("-- enable_loongarch64")
+  # add source about loongarch
+else()
+  aux_source_directory(./sse DIR_X86_SRC)
+  aux_source_directory(./avx2 DIR_X86_256_SRC)
+  list(APPEND DIR_UAVS3E_SRC ${DIR_X86_CORE})
+endif()
+
+include_directories("../inc")
+
+if(${COMPILE_10BIT})
+    add_definitions(-DCOMPILE_10BIT=1)
+else()
+    add_definitions(-DCOMPILE_10BIT=0)
+endif()
+
+set_source_files_properties(${DIR_UAVS3E_SRC} PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fPIC -std=c99 -O3")
+set_source_files_properties(${DIR_X86_SRC} PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fPIC -std=c99 -O3 -msse4.2")
+set_source_files_properties(${DIR_X86_256_SRC} PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fPIC -std=c99 -O3 -mavx2")
+
+# get version
+set (CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
+execute_process(COMMAND sh ${CONFIG_DIR}/version.sh ${CONFIG_DIR})
+
+function(extract_version_string version_file version_string_out)
+  file(STRINGS "${version_file}" uavs3e_version REGEX "VERSION_STR")
+  string(REPLACE "#define VERSION_STR " "" uavs3e_version "${uavs3e_version}")
+  string(REPLACE "\"" "" uavs3e_version "${uavs3e_version}")
+  string(REPLACE " " "" uavs3e_version "${uavs3e_version}")
+  set("${version_string_out}" "${uavs3e_version}" PARENT_SCOPE)
+endfunction()
+
+extract_version_string("${CONFIG_DIR}/version.h" uavs3e_version)
+MESSAGE(STATUS "uavs3e version \t\t: ${uavs3e_version}")
+
+# pkg-config
+find_package(Threads REQUIRED)
+set(prefix "${CMAKE_INSTALL_PREFIX}")
+set(includedir "include")
+set(libdir "lib")
+set(pc_file "${CONFIG_DIR}/${LIBNAME}.pc")
+
+set(CMAKE_INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/${includedir}")
+set(CMAKE_INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/${libdir}")
+set(CMAKE_INSTALL_PKGCONFIG_DIR "${CMAKE_INSTALL_LIB_DIR}/pkgconfig")
+MESSAGE(STATUS "INSTALL_INCLUDE_DIR \t\t: ${CMAKE_INSTALL_INCLUDE_DIR}")
+MESSAGE(STATUS "INSTALL_LIB_DIR \t\t: ${CMAKE_INSTALL_LIB_DIR}")
+MESSAGE(STATUS "INSTALL_PKGCONFIG_DIR\t: ${CMAKE_INSTALL_PKGCONFIG_DIR}")
+# write pkg-config file
+file(WRITE "${pc_file}" "prefix=${prefix}\n")
+file(APPEND "${pc_file}" "exec_prefix=\${prefix}\n")
+file(APPEND "${pc_file}" "includedir=\${prefix}/${includedir}\n")
+file(APPEND "${pc_file}" "libdir=\${exec_prefix}/${libdir}\n\n")
+file(APPEND "${pc_file}" "Name: ${LIBNAME}\n")
+file(APPEND "${pc_file}" "Description: AVS3 decoder library \n")
+file(APPEND "${pc_file}" "Version: ${uavs3e_version}\n")
+if(CMAKE_USE_PTHREADS_INIT)
+  file(APPEND "${pc_file}" "Libs: -L\${libdir} -l${LIBNAME} -lm -lpthread\n")
+else()
+  file(APPEND "${pc_file}" "Libs: -L\${libdir} -l${LIBNAME} -lm\n")
+file(APPEND "${pc_file}" "Libs.private: \n")
+endif()
+file(APPEND "${pc_file}" "Cflags: -I\${includedir}\n")
+
+# set library
+if(BUILD_SHARED_LIBS)
+MESSAGE(STATUS "BUILD_SHARED_LIBS \t\t: true")
+else()
+MESSAGE(STATUS "BUILD_SHARED_LIBS \t\t: false")
+endif()
+
+add_library(uavs3e ${DIR_UAVS3E_SRC} ${DIR_X86_256_SRC} ${DIR_X86_SRC} ${DIR_ARM64_SRC})
+
+target_link_libraries(uavs3e m)
+if(CMAKE_USE_PTHREADS_INIT)
+target_link_libraries(${LIBNAME} pthread)
+endif()
+
+install(TARGETS uavs3e LIBRARY DESTINATION ${CMAKE_INSTALL_LIB_DIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIB_DIR})
+install(FILES ../inc/uavs3e.h DESTINATION ${CMAKE_INSTALL_INCLUDE_DIR}/uavs3e/)
+install(FILES ../inc/com_api.h DESTINATION ${CMAKE_INSTALL_INCLUDE_DIR}/uavs3e/)
+install(FILES ${CONFIG_DIR}/${LIBNAME}.pc DESTINATION ${CMAKE_INSTALL_PKGCONFIG_DIR})
