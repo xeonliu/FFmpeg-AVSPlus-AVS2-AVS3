@@ -36,8 +36,10 @@
 /config.asm
 /config.h
 /config_components.h
+/build/
 /coverage.info
 /lcov/
 /src
+/third_party/uavs3e/version.h
 /mapfile
 /tools/python/__pycache__/
