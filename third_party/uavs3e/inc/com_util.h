@@ -262,7 +262,9 @@ u8 com_tree_split(int w, int h, split_mode_t split, u8 slice_type);
 
 
 /* function selection define based on platforms */
-#if (defined(__ANDROID__) && defined(__aarch64__)) || (defined(__APPLE__) && defined(__arm64__)) || (defined(__linux__) && defined(__aarch64__))
+#if defined(UAVS3E_DISABLE_ASM)
+#define ENABLE_FUNCTION_C 1
+#elif (defined(__ANDROID__) && defined(__aarch64__)) || (defined(__APPLE__) && defined(__arm64__)) || (defined(__linux__) && defined(__aarch64__))
 #define ENABLE_FUNCTION_C 1
 #define ENABLE_FUNCTION_ARM64 1
 #elif (defined(__ANDROID__) && defined(__arm__)) || (defined(__APPLE__) && defined(__ARM_NEON__))

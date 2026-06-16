@@ -1,0 +1,99 @@
+name: libuavs3e 10-bit
+
+on:
+  push:
+    branches:
+      - work/7-vendor-uavs3e-local-verify
+      - feat/avs2-avs3-integrate
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS arm64 build and round trip
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: brew install cmake gawk nasm yasm
+
+      - name: Build FFmpeg and verify 10-bit round trip
+        run: ./tools/verify_libuavs3e_roundtrip.sh
+
+  linux:
+    name: Linux x86_64 build and round trip
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ca-certificates \
+            cmake \
+            gawk \
+            git \
+            nasm \
+            perl \
+            pkg-config \
+            python3 \
+            xz-utils \
+            yasm
+
+      - name: Build FFmpeg and verify 10-bit round trip
+        run: ./tools/verify_libuavs3e_roundtrip.sh
+
+  windows-cross:
+    name: Windows x86_64 cross build
+    runs-on: ubuntu-22.04
+    env:
+      CROSS_PREFIX: x86_64-w64-mingw32-
+      UAVS3E_PREFIX: ${{ github.workspace }}/build/ffdeps-uavs3e-win64
+      UAVS3E_BUILD_DIR: ${{ github.workspace }}/build/uavs3e-win64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ca-certificates \
+            cmake \
+            gawk \
+            mingw-w64 \
+            nasm \
+            perl \
+            pkg-config \
+            python3 \
+            yasm
+
+      - name: Build 10-bit libuavs3e for Windows
+        run: |
+          export CC="${CROSS_PREFIX}gcc"
+          export CXX="${CROSS_PREFIX}g++"
+          export AR="${CROSS_PREFIX}ar"
+          export RANLIB="${CROSS_PREFIX}ranlib"
+          export UAVS3E_CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Windows -DCMAKE_RC_COMPILER=${CROSS_PREFIX}windres"
+          ./tools/build_libuavs3e.sh
+
+      - name: Configure FFmpeg for Windows
+        run: |
+          export PKG_CONFIG_PATH="${UAVS3E_PREFIX}/lib/pkgconfig"
+          ./configure \
+            --disable-doc \
+            --disable-autodetect \
+            --enable-gpl \
+            --enable-libuavs3e \
+            --enable-encoder=libuavs3e \
+            --pkg-config-flags=--static \
+            --target-os=mingw32 \
+            --arch=x86_64 \
+            --cross-prefix="${CROSS_PREFIX}" \
+            --pkg-config=pkg-config
+
+      - name: Build FFmpeg for Windows
+        run: make -j"$(nproc)"

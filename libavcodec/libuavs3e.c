@@ -1,14 +1,11 @@
-
-
-#include "uavs3e/uavs3e.h" 
-
-#include "internal.h"
 #include "avcodec.h"
-
-#include "libavutil/common.h"
-#include "libavutil/opt.h"
-
+#include "codec_internal.h"
 #include "encode.h"
+
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+
+#include "uavs3e/uavs3e.h"
 
 #define MAX_BUMP_FRM_CNT           (8 <<1)
 #define MAX_BS_BUF                 (32*1024*1024)
@@ -61,14 +58,14 @@ static const int color_matrix_tab[12] = {
 
 typedef struct UAVS3EContext {
     AVClass        *class;
-    void*         handle;
+    void         *handle;
     enc_cfg_t     avs3_cfg;
-	
+
     /* configuration */
     int threads_wpp;
     int threads_frm;
-    int baseQP;  
-	int baseCRF;
+    int baseQP;
+    int baseCRF;
     int speed_level;
     int intra_period;
     int hdr;
@@ -77,7 +74,7 @@ typedef struct UAVS3EContext {
     int rc_type;
 } UAVS3EContext;
 
-static int uavs3e_init(AVCodecContext *avctx)
+static av_cold int uavs3e_init(AVCodecContext *avctx)
 {
     UAVS3EContext *ec = avctx->priv_data;
     uavs3e_load_default_cfg(&ec->avs3_cfg);
@@ -85,18 +82,22 @@ static int uavs3e_init(AVCodecContext *avctx)
     if (avctx->pix_fmt == AV_PIX_FMT_YUV420P) {
         ec->avs3_cfg.bit_depth_input    = 8;
         ec->avs3_cfg.bit_depth_internal = 8;
-    } else if (avctx->pix_fmt == AV_PIX_FMT_YUV420P10LE){
+    } else if (avctx->pix_fmt == AV_PIX_FMT_YUV420P10LE) {
 #if (BIT_DEPTH == 10)
         ec->avs3_cfg.bit_depth_input    = 10;
         ec->avs3_cfg.bit_depth_internal = 10;
 #else
-        return -1;
+        av_log(avctx, AV_LOG_ERROR, "10-bit input requires a 10-bit uavs3e build\n");
+        return AVERROR(EINVAL);
 #endif
     } else {
-        return -1;
+        av_log(avctx, AV_LOG_ERROR, "Unsupported pixel format %s\n",
+               av_get_pix_fmt_name(avctx->pix_fmt));
+        return AVERROR(EINVAL);
     }
 
-    av_log(NULL, AV_LOG_INFO, "Internal depth: %d  input depth %d\n", ec->avs3_cfg.bit_depth_internal, ec->avs3_cfg.bit_depth_input);
+    av_log(avctx, AV_LOG_INFO, "Internal depth: %d input depth %d\n",
+           ec->avs3_cfg.bit_depth_internal, ec->avs3_cfg.bit_depth_input);
 
     ec->avs3_cfg.horizontal_size    = avctx->coded_width;
     ec->avs3_cfg.vertical_size      = avctx->coded_height;
@@ -119,17 +120,26 @@ static int uavs3e_init(AVCodecContext *avctx)
         ec->avs3_cfg.rc_max_qp =  63;
     }
 
-    av_log(NULL, AV_LOG_INFO, "uavs3e cfg: %dx%d %d/%dfps gop:%d\n", ec->avs3_cfg.pic_width, ec->avs3_cfg.pic_height,
-                                                                     ec->avs3_cfg.fps_num, ec->avs3_cfg.fps_den, ec->avs3_cfg.i_period); 
+    av_log(avctx, AV_LOG_INFO, "uavs3e cfg: %dx%d %d/%dfps gop:%d\n",
+           ec->avs3_cfg.pic_width, ec->avs3_cfg.pic_height,
+           ec->avs3_cfg.fps_num, ec->avs3_cfg.fps_den, ec->avs3_cfg.i_period);
     if (avctx->bit_rate) {
-        av_log(NULL, AV_LOG_INFO, "uavs3e cfg: bitrate: %d kbps\n", ec->avs3_cfg.rc_bitrate);
+        av_log(avctx, AV_LOG_INFO, "uavs3e cfg: bitrate: %d kbps\n",
+               ec->avs3_cfg.rc_bitrate);
     } else {
-        av_log(NULL, AV_LOG_INFO, "uavs3e cfg: %s: %d\n", ec->avs3_cfg.rc_type == 0 ? "CQP" : "CRF", ec->avs3_cfg.rc_type == 0 ? ec->avs3_cfg.qp : ec->avs3_cfg.rc_crf);
+        av_log(avctx, AV_LOG_INFO, "uavs3e cfg: %s: %d\n",
+               ec->avs3_cfg.rc_type == 0 ? "CQP" : "CRF",
+               ec->avs3_cfg.rc_type == 0 ? ec->avs3_cfg.qp : ec->avs3_cfg.rc_crf);
     }
-    av_log(NULL, AV_LOG_INFO, "uavs3e cfg: wpp_thread:%d  frm_thread:%d\n", ec->avs3_cfg.wpp_threads, ec->avs3_cfg.frm_threads);		
+    av_log(avctx, AV_LOG_INFO, "uavs3e cfg: wpp_thread:%d frm_thread:%d\n",
+           ec->avs3_cfg.wpp_threads, ec->avs3_cfg.frm_threads);
 
-	ec->handle = uavs3e_create(&ec->avs3_cfg, NULL);
-	
+    ec->handle = uavs3e_create(&ec->avs3_cfg, NULL);
+    if (!ec->handle) {
+        av_log(avctx, AV_LOG_ERROR, "Failed to create uavs3e encoder\n");
+        return AVERROR_EXTERNAL;
+    }
+
     return 0;
 }
 
@@ -146,11 +156,13 @@ static void __imgb_cpy_plane(void *src, void *dst, int bw, int h, int s_src, int
     }
 }
 
-static void uavs3e_image_copy_pic(void *dst[4], int i_dst[4], unsigned char *const src[4], const int i_src[4],  enum AVPixelFormat pix_fmts, int width, int height)
+static void uavs3e_image_copy_pic(void *dst[4], int i_dst[4],
+                                  uint8_t *const src[4], const int i_src[4],
+                                  enum AVPixelFormat pix_fmts, int width, int height)
 {
-    if(sizeof(pel)>1 && pix_fmts==AV_PIX_FMT_YUV420P){    //sizeof(pel)==2 when BIT_DEPTH == 10
-        //Expand YUV420P to 2-byte
-	for(int plane=0;plane<3;plane++){
+    if (sizeof(pel) > 1 && pix_fmts == AV_PIX_FMT_YUV420P) {
+        /* Expand 8-bit input samples into a 10-bit uavs3e build's pel storage. */
+        for (int plane = 0; plane < 3; plane++) {
             int planeheight=(plane==0)?height:height>>1;
             int planewidth=(plane==0)?width:width>>1;
 
@@ -165,9 +177,8 @@ static void uavs3e_image_copy_pic(void *dst[4], int i_dst[4], unsigned char *con
                ind_src += i_src[plane];
                ind_dst += (i_dst[plane]>>1);
             }//for (int y = 0; y < planeheight; y++)
-        }//for(int plane=0;plane<3;plane++)
-    }
-    else{
+        }
+    } else {
         width=(sizeof(pel)>1)?width<<1:width;
         __imgb_cpy_plane(src[0], dst[0], width,      height,      i_src[0], i_dst[0]);
         __imgb_cpy_plane(src[1], dst[1], width >> 1, height >> 1, i_src[1], i_dst[1]);
@@ -179,69 +190,52 @@ static int uavs3e_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
                       const AVFrame *frame, int *got_packet)
 {
     UAVS3EContext *ec = avctx->priv_data;
-	enc_stat_t stat = {0};
-	com_img_t *img_enc = NULL;
+    enc_stat_t stat = {0};
+    com_img_t *img_enc = NULL;
+    int ret;
 
-	int ret;
-
-	if (ff_alloc_packet(avctx, pkt, MAX_BS_BUF) < 0) {
-        return -1;
-    }
 
     if (frame) {
-        uavs3e_get_img(ec->handle, &img_enc);
-		img_enc->pts = frame->pts;
-        uavs3e_image_copy_pic(img_enc->planes, img_enc->stride, frame->data, frame->linesize, avctx->pix_fmt, img_enc->width[0], img_enc->height[0]);
+        ret = uavs3e_get_img(ec->handle, &img_enc);
+        if (ret != COM_OK || !img_enc)
+            return AVERROR_EXTERNAL;
+
+        img_enc->pts = frame->pts;
+        uavs3e_image_copy_pic(img_enc->planes, img_enc->stride,
+                              frame->data, frame->linesize, avctx->pix_fmt,
+                              img_enc->width[0], img_enc->height[0]);
     }
 
-	ret = uavs3e_enc(ec->handle, &stat, img_enc);
+    ret = uavs3e_enc(ec->handle, &stat, img_enc);
 
     if (ret == COM_OK) {
+        if ((ret = ff_get_encode_buffer(avctx, pkt, stat.bytes, 0)) < 0)
+            return ret;
+
         *got_packet = 1;
         memcpy(pkt->data, stat.buf, stat.bytes);
-        pkt->size = stat.bytes;
         pkt->pts  = stat.pts;
         pkt->dts  = stat.dts - 4 * avctx->time_base.num;
 
-		if (stat.type == SLICE_I) {
+        if (stat.type == SLICE_I) {
             pkt->flags |= AV_PKT_FLAG_KEY;
-        } else { 
-            pkt->flags &= ~AV_PKT_FLAG_KEY;
         }
-				
-#if FF_API_CODED_FRAME 
-	FF_DISABLE_DEPRECATION_WARNINGS
-			avctx->coded_frame->pts = stat.pts;
-			switch (stat.type) {
-			case SLICE_I:
-				avctx->coded_frame->pict_type = AV_PICTURE_TYPE_I;
-				break;
-			case SLICE_P:
-				avctx->coded_frame->pict_type = AV_PICTURE_TYPE_P;
-				break;
-			case SLICE_B:
-				avctx->coded_frame->pict_type = AV_PICTURE_TYPE_B;
-				break;
-			default:
-				avctx->coded_frame->pict_type = AV_PICTURE_TYPE_NONE;
-			}
-			avctx->coded_frame->key_frame = (stat.type == SLICE_I);
-	FF_ENABLE_DEPRECATION_WARNINGS
-#endif
     } else {
-		*got_packet = 0;		
+        *got_packet = 0;
     }
 
     return 0;
 }
 
-static int uavs3e_close(AVCodecContext *avctx)
-{ 
+static av_cold int uavs3e_close(AVCodecContext *avctx)
+{
     UAVS3EContext *ec = avctx->priv_data;
-    uavs3e_free(ec->handle);
-	
+
+    if (ec->handle)
+        uavs3e_free(ec->handle);
+
     return 0;
-} 
+}
 
 #define OFFSET(x) offsetof(UAVS3EContext, x)
 #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
@@ -270,26 +264,32 @@ static const AVClass uavs3e_class = {
     .version    = LIBAVUTIL_VERSION_INT,
 };
 
-static const AVCodecDefault uavs3e_defaults[] = {
+static const FFCodecDefault uavs3e_defaults[] = {
     { "b",                "0" },
     { NULL },
 };
 
-AVCodec ff_libuavs3e_encoder = {
-    .name           = "libuavs3e",
-    .long_name      = NULL_IF_CONFIG_SMALL("libuavs3e Chinese AVS3 (Audio Video Standard)"),
-    .type           = AVMEDIA_TYPE_VIDEO,
-    .id             = AV_CODEC_ID_AVS3,
+const FFCodec ff_libuavs3e_encoder = {
+    .p.name         = "libuavs3e",
+    CODEC_LONG_NAME("libuavs3e Chinese AVS3 (Audio Video Standard)"),
+    .p.type         = AVMEDIA_TYPE_VIDEO,
+    .p.id           = AV_CODEC_ID_AVS3,
     .priv_data_size = sizeof(UAVS3EContext),
     .init           = uavs3e_init,
-    .encode2        = uavs3e_encode_frame,
+    FF_CODEC_ENCODE_CB(uavs3e_encode_frame),
     .close          = uavs3e_close,
-    .capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_AUTO_THREADS,
+    .p.capabilities = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_OTHER_THREADS,
+    .caps_internal  = FF_CODEC_CAP_NOT_INIT_THREADSAFE |
+                      FF_CODEC_CAP_AUTO_THREADS,
 #if (BIT_DEPTH == 10)
-    .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV420P10LE, AV_PIX_FMT_NONE },
+    .p.pix_fmts     = (const enum AVPixelFormat[]) { AV_PIX_FMT_YUV420P,
+                                                     AV_PIX_FMT_YUV420P10LE,
+                                                     AV_PIX_FMT_NONE },
 #else
-    .pix_fmts		= (const enum AVPixelFormat[]) { AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE },
+    .p.pix_fmts     = (const enum AVPixelFormat[]) { AV_PIX_FMT_YUV420P,
+                                                     AV_PIX_FMT_NONE },
 #endif
-    .priv_class     = &uavs3e_class,
+    .p.priv_class   = &uavs3e_class,
     .defaults       = uavs3e_defaults,
-} ;
+    .p.wrapper_name = "libuavs3e",
+};

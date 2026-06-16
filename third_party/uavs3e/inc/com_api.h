@@ -43,25 +43,16 @@ extern "C"
 {
 #endif
 
-#if defined(__linux__)
-#if COMPILE_10BIT
-    typedef unsigned short pel;
-    #define BIT_DEPTH 10
-#else
-    typedef unsigned char pel;
-    #define BIT_DEPTH 8
-#endif
-
-#else
+#ifndef COMPILE_10BIT
 #define COMPILE_10BIT 0
+#endif
+
 #if COMPILE_10BIT
     typedef unsigned short pel;
     #define BIT_DEPTH 10
 #else
     typedef unsigned char pel;
     #define BIT_DEPTH 8
-#endif
-
 #endif
 
 /*****************************************************************************

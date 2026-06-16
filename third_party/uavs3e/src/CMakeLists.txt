@@ -1,9 +1,10 @@
 
 set(LIBNAME uavs3e)
+option(UAVS3E_ENABLE_ASM "Enable architecture-specific uavs3e SIMD/ASM" ON)
 
 # add source
 aux_source_directory(. DIR_UAVS3E_SRC)
-if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "aarch64" OR "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm64")
+if(UAVS3E_ENABLE_ASM AND ("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "aarch64" OR "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm64"))
   message("-- enable_armv8")
   aux_source_directory(./armv8 DIR_ARM64_SRC)
   list(APPEND DIR_ARM64_SRC "./armv8/arm64.c")
@@ -22,13 +23,16 @@ if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "aarch64" OR "${CMAKE_SYSTEM_PROCESSOR}" 
   list(APPEND DIR_ARM64_SRC "./armv8/itrans_arm64.c")
   include_directories("./armv8")
   enable_language(ASM)
-elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "loongarch64")
+elseif(UAVS3E_ENABLE_ASM AND "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "loongarch64")
   message("-- enable_loongarch64")
   # add source about loongarch
-else()
+elseif(UAVS3E_ENABLE_ASM)
   aux_source_directory(./sse DIR_X86_SRC)
   aux_source_directory(./avx2 DIR_X86_256_SRC)
   list(APPEND DIR_UAVS3E_SRC ${DIR_X86_CORE})
+else()
+  message("-- disable SIMD/ASM")
+  add_definitions(-DUAVS3E_DISABLE_ASM=1)
 endif()
 
 include_directories("../inc")
@@ -85,7 +89,11 @@ else()
   file(APPEND "${pc_file}" "Libs: -L\${libdir} -l${LIBNAME} -lm\n")
 file(APPEND "${pc_file}" "Libs.private: \n")
 endif()
-file(APPEND "${pc_file}" "Cflags: -I\${includedir}\n")
+if(${COMPILE_10BIT})
+  file(APPEND "${pc_file}" "Cflags: -I\${includedir} -DCOMPILE_10BIT=1\n")
+else()
+  file(APPEND "${pc_file}" "Cflags: -I\${includedir} -DCOMPILE_10BIT=0\n")
+endif()
 
 # set library
 if(BUILD_SHARED_LIBS)
